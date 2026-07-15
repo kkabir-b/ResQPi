@@ -1,44 +1,46 @@
-#include <iostream>
+#include "inferrer/Inferrer.hpp"
 #include <opencv2/opencv.hpp>
-#include <onnxruntime_cxx_api.h> // Include the ONNX Runtime C++ API Header
+#include <iostream>
 
 int main() {
-    // 1. Verify ONNX Runtime works by initializing its Environment
     try {
-        Ort::Env env(ORT_LOGGING_LEVEL_WARNING, "OnnxTest");
-        Ort::SessionOptions session_options;
-        std::cout << "Successfully initialized ONNX Runtime!" << std::endl;
-    } 
-    catch (const std::exception& e) {
-        std::cerr << "ONNX Runtime initialization failed: " << e.what() << std::endl;
-        return -1;
-    }
+        std::string modelPath = "models/YOLOv10n_gestures.onnx"; 
+        std::cout << "Loading model: " << modelPath << "..." << std::endl;
+        Inferrer yolo(modelPath.c_str());
+        std::cout << "Model loaded successfully!" << std::endl;
 
-    // 2. Open the Webcam feed
-    cv::VideoCapture cap(0);
-    if (!cap.isOpened()) {
-        std::cerr << "Error: Could not open the webcam." << std::endl;
-        return -1;
-    }
-
-    cv::Mat frame;
-    std::cout << "Starting webcam feed. Press 'ESC' to exit." << std::endl;
-
-    while (true) {
-        cap >> frame;
-        
-        // Check if the frame is empty
-        if (frame.empty()) {
-            std::cerr << "Blank frame grabbed." << std::endl;
-            break;
+        cv::VideoCapture cap(0);
+        if (!cap.isOpened()) {
+            std::cerr << "Error: Could not open the webcam." << std::endl;
+            return -1;
         }
 
-        cv::imshow("Webcam feed", frame);
+        cap.set(cv::CAP_PROP_FRAME_WIDTH, 640);
+        cap.set(cv::CAP_PROP_FRAME_HEIGHT, 480);
 
-        // Break the loop if ESC (ASCII 27) is pressed
-        if (cv::waitKey(30) == 27) {
-            break;
+        cv::Mat frame;
+        std::cout << "Starting headless inference loop. Press Ctrl+C in the terminal to stop." << std::endl;
+
+        while (true) {
+            cap >> frame;
+            if (frame.empty()) {
+                std::cerr << "Error: Captured an empty frame." << std::endl;
+                break;
+            }
+
+
+            yolo.runInfer(frame);
+            
         }
+
+        cap.release();
+
+    } catch (const Ort::Exception& e) {
+        std::cerr << "ONNX Runtime Error: " << e.what() << std::endl;
+        return -1;
+    } catch (const std::exception& e) {
+        std::cerr << "Standard Exception Error: " << e.what() << std::endl;
+        return -1;
     }
 
     return 0;
