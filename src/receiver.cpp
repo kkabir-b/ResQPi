@@ -7,6 +7,11 @@
 #include <vector>
 #include <map>
 #include <cstring>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+#include <queue>
+#include <atomic>
 
 
 #define PORT 8080
@@ -39,20 +44,51 @@ struct FrameAssembly {
 };
 
 int main() {
-    //0. Set up object detection model
+    // 0. Set up object detection model
     std::string modelPath = "models/YOLOv10n_gestures.onnx"; 
     Inferrer yolo(modelPath.c_str());
+
+    // --- NEW: Threading Primitives ---
+    std::queue<std::vector<uchar>> inference_queue;
+    std::mutex queue_mtx;
+    std::condition_variable queue_cv;
+    std::atomic<bool> keep_running{true};
+
+    // --- NEW: The Background Inference Thread ---
+    std::thread worker_thread([&]() {
+        while (keep_running) {
+            std::vector<uchar> jpeg_buffer;
+
+            // 1. Wait until a frame is in the queue
+            {
+                std::unique_lock<std::mutex> lock(queue_mtx);
+                // Sleep thread until the queue has data (uses zero CPU while waiting)
+                queue_cv.wait(lock, [&]{ return !inference_queue.empty() || !keep_running; });
+
+                if (!keep_running && inference_queue.empty()) break;
+
+                // Grab the oldest frame and remove it from the queue
+                jpeg_buffer = std::move(inference_queue.front());
+                inference_queue.pop();
+            } // Lock is automatically released here!
+
+            // 2. Decode and run inference (Heavy lifting is now off the network thread!)
+            cv::Mat frame = cv::imdecode(jpeg_buffer, cv::IMREAD_COLOR);
+            if (!frame.empty()) {
+                yolo.runInfer(frame);
+            }
+        }
+    });
+
     // 1. Set up UDP Socket
     int sock = socket(AF_INET, SOCK_DGRAM, 0);
-    
-    // CRITICAL FIX: Crank up the OS receive buffer to 2MB to prevent dropped packets under load
     int rcvbuf = 2 * 1024 * 1024; 
     setsockopt(sock, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(rcvbuf));
 
     struct sockaddr_in servaddr, cliaddr;
     memset(&servaddr, 0, sizeof(servaddr));
     servaddr.sin_family = AF_INET;
-    servaddr.sin_addr.s_addr = INADDR_ANY; // Listen on all network interfaces
+    servaddr.sin_addr.s_addr = INADDR_ANY; 
     servaddr.sin_port = htons(PORT);
 
     if (bind(sock, (const struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
@@ -63,7 +99,6 @@ int main() {
     std::vector<char> recv_buf(MAX_PACKET_SIZE);
     socklen_t len = sizeof(cliaddr);
     
-    // Sliding window map to track multiple frames arriving simultaneously
     std::map<uint32_t, FrameAssembly> frame_map;
     uint32_t last_displayed_frame_id = 0;
 
@@ -72,56 +107,62 @@ int main() {
     while (true) {
         // 2. Receive packet
         int n = recvfrom(sock, recv_buf.data(), MAX_PACKET_SIZE, 0, (struct sockaddr *)&cliaddr, &len);
-        if (n < (int)sizeof(PacketHeader)) continue; // Ignore corrupted/tiny packets
+        if (n < (int)sizeof(PacketHeader)) continue; 
 
         // 3. Parse Header
         PacketHeader header;
         std::memcpy(&header, recv_buf.data(), sizeof(PacketHeader));
 
-        // Ignore packets for frames older than what we've already displayed
-        if (header.frame_id < last_displayed_frame_id) {
-            continue;
-        }
+        if (header.frame_id < last_displayed_frame_id) continue;
 
-        // 4. Initialize this frame in our map if we haven't seen it yet
+        // 4. Initialize frame
         if (frame_map.find(header.frame_id) == frame_map.end()) {
-            // Prevent map from growing infinitely if many packets are lost
             if (frame_map.size() >= MAX_ACTIVE_FRAMES) {
-                frame_map.erase(frame_map.begin()); // Erase the oldest tracked frame
+                frame_map.erase(frame_map.begin()); 
             }
             frame_map[header.frame_id].init(header.total_packets);
         }
 
         FrameAssembly& assembly = frame_map[header.frame_id];
 
-        // 5. Store the chunk payload data
+        // 5. Store chunk
         if (header.packet_index < assembly.total_packets && !assembly.received_mask[header.packet_index]) {
             assembly.received_mask[header.packet_index] = true;
             assembly.received_count++;
             
             const char* payload_ptr = recv_buf.data() + sizeof(PacketHeader);
-            // Notice we only read exactly `header.payload_size` bytes (No padding issues!)
             assembly.chunks[header.packet_index].assign(payload_ptr, payload_ptr + header.payload_size);
         }
 
-        // 6. If this frame is now 100% complete, decode and show it!
+        // --- MODIFIED: Step 6 & 7 ---
         if (assembly.received_count == assembly.total_packets) {
             
-            // Stitch chunks together into one JPEG buffer
+            // Stitch chunks (This is very fast memory copying, safe for main thread)
             std::vector<uchar> jpeg_buffer;
             for (const auto& chunk : assembly.chunks) {
                 jpeg_buffer.insert(jpeg_buffer.end(), chunk.begin(), chunk.end());
             }
 
-            // Decode the JPEG
-            cv::Mat frame = cv::imdecode(jpeg_buffer, cv::IMREAD_COLOR);
-            if (!frame.empty()) {
-                yolo.runInfer(frame);
+            // Hand the finished JPEG off to the inference thread
+            {
+                std::lock_guard<std::mutex> lock(queue_mtx);
+                
+                // CRITICAL FOR REAL-TIME: 
+                // If YOLO is slower than the network, the queue will grow infinitely and lag.
+                // By forcing the queue size to stay at 2, we drop stale frames and ensure 
+                // YOLO is always inferencing the most recent reality.
+                if (inference_queue.size() >= 2) {
+                    inference_queue.pop(); 
+                }
+                
+                // std::move transfers memory ownership instantly without copying data
+                inference_queue.push(std::move(jpeg_buffer)); 
             }
+            queue_cv.notify_one(); // Wake up the worker thread!
 
             last_displayed_frame_id = header.frame_id;
 
-            // 7. Clean up the map (Erase this frame and any stale incomplete frames older than it)
+            // 7. Clean up the map (Kept on main thread to avoid blocking network loop)
             auto it = frame_map.begin();
             while (it != frame_map.end()) {
                 if (it->first <= last_displayed_frame_id) {
@@ -133,6 +174,10 @@ int main() {
         }
     }
 
+    // Cleanup (though this while(true) loop never actually reaches here)
+    keep_running = false;
+    queue_cv.notify_one();
+    worker_thread.join();
     close(sock);
     return 0;
 }
