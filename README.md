@@ -64,7 +64,7 @@ ResQPi/
 └── vcpkg.json
 ```
  
-Edit `model_path` in `main.cpp` to point at whichever one you want to run.
+Edit `model_path` in `receiver.cpp` to point at whichever one you want to run.
  
 ### Build
  
