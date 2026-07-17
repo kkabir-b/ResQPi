@@ -8,10 +8,10 @@
 #include <cstring>
 
 #define PORT 8080
-#define DEST_IP "127.0.0.1" // Change this to the receiver's IP address
-#define CHUNK_SIZE 1400     // Safe size below standard Ethernet MTU (1500)
+#define DEST_IP "IP_TO_DEST" 
+#define CHUNK_SIZE 1400     
 
-// Force the compiler to pack this struct with zero padding (exactly 12 bytes)
+
 #pragma pack(push, 1)
 struct PacketHeader {
     uint32_t frame_id;
@@ -22,18 +22,18 @@ struct PacketHeader {
 #pragma pack(pop)
 
 int main() {
-    // 1. Open the webcam
+    
     cv::VideoCapture cap(0);
     if (!cap.isOpened()) {
         std::cerr << "Error opening webcam!" << std::endl;
         return -1;
     }
 
-    // Optional: Downscale resolution for better network performance
+    
     cap.set(cv::CAP_PROP_FRAME_WIDTH, 640);
     cap.set(cv::CAP_PROP_FRAME_HEIGHT, 480);
 
-    // 2. Set up UDP Socket
+    
     int sock = socket(AF_INET, SOCK_DGRAM, 0);
     struct sockaddr_in servaddr;
     memset(&servaddr, 0, sizeof(servaddr));
@@ -44,7 +44,7 @@ int main() {
     cv::Mat frame;
     std::vector<uchar> jpeg_buffer;
     
-    // Aggressive JPEG compression to reduce packet count (50-60 is a good sweet spot)
+    
     std::vector<int> params = {cv::IMWRITE_JPEG_QUALITY, 55}; 
     uint32_t frame_id = 0;
 
@@ -54,37 +54,37 @@ int main() {
         cap >> frame;
         if (frame.empty()) break;
 
-        // 3. Compress frame to JPEG
+        
         cv::imencode(".jpg", frame, jpeg_buffer, params);
         
         uint32_t total_size = jpeg_buffer.size();
         uint16_t total_packets = (total_size + CHUNK_SIZE - 1) / CHUNK_SIZE;
 
-        // 4. Chunk the JPEG and send each piece
+        
         for (uint16_t i = 0; i < total_packets; ++i) {
             uint32_t offset = i * CHUNK_SIZE;
             uint32_t current_chunk_size = std::min((uint32_t)CHUNK_SIZE, total_size - offset);
 
-            // Populate header
+            
             PacketHeader header;
             header.frame_id = frame_id;
             header.packet_index = i;
             header.total_packets = total_packets;
             header.payload_size = current_chunk_size;
 
-            // Prepare single UDP packet payload: [Header] + [JPEG Chunk]
+            
             std::vector<char> packet(sizeof(PacketHeader) + current_chunk_size);
             std::memcpy(packet.data(), &header, sizeof(PacketHeader));
             std::memcpy(packet.data() + sizeof(PacketHeader), jpeg_buffer.data() + offset, current_chunk_size);
 
-            // Send packet
+            
             sendto(sock, packet.data(), packet.size(), 0,
                    (const struct sockaddr *)&servaddr, sizeof(servaddr));
         }
 
-        frame_id++; // Move to next frame
+        frame_id++; 
         
-        // Show local preview (optional)
+        
         
     }
 

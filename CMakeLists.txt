@@ -4,9 +4,7 @@ project(WebcamProject)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# ---------------------------------------------------------------
-# OpenCV (via vcpkg)
-# ---------------------------------------------------------------
+
 find_package(OpenCV CONFIG REQUIRED)
 
 # ---------------------------------------------------------------
@@ -46,29 +44,16 @@ message(STATUS "onnxruntime library: ${ORT_LIBRARY}")
 # ---------------------------------------------------------------
 # Target
 # ---------------------------------------------------------------
-add_executable(main src/main.cpp src/inferrer/Inferrer.cpp)
+
 add_executable(sender src/sender.cpp)
 add_executable(receiver src/receiver.cpp src/inferrer/Inferrer.cpp)
 
-target_include_directories(main PRIVATE
-    ${OpenCV_INCLUDE_DIRS}
-    ${ORT_INCLUDE_DIR}
-)
+
 
 target_include_directories(sender PRIVATE ${OpenCV_INCLUDE_DIRS})
 target_include_directories(receiver PRIVATE ${OpenCV_INCLUDE_DIRS} ${ORT_INCLUDE_DIR})
 
-target_link_libraries(main PRIVATE
-    ${OpenCV_LIBS}
-    ${ORT_LIBRARY}
-)
+
 target_link_libraries(sender PRIVATE ${OpenCV_LIBS})
 
 target_link_libraries(receiver PRIVATE ${OpenCV_LIBS} ${ORT_LIBRARY})
-
-# Ensure the executable can find libonnxruntime.so at runtime without
-# needing LD_LIBRARY_PATH set manually every time.
-set_target_properties(main PROPERTIES
-    BUILD_RPATH "${ONNXRUNTIME_ROOT}/lib"
-    INSTALL_RPATH "${ONNXRUNTIME_ROOT}/lib"
-)
