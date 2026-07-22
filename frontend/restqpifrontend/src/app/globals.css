@@ -6,12 +6,20 @@
     box-sizing: border-box;
 }
 
+/* ---------- Page ---------- */
+
+html,
+body {
+    width: 100%;
+    min-height: 100vh;
+    background-color: #0d1117;
+}
+
 /* ---------- Body ---------- */
 
 body {
-    background: #1b1f24;
-    font-family: Arial, Helvetica, sans-serif;
     color: white;
+    font-family: Inter, Arial, sans-serif;
 }
 
 /* ---------- Buttons ---------- */
@@ -35,14 +43,14 @@ a {
 }
 
 ::-webkit-scrollbar-track {
-    background: #20252b;
+    background: #0d1117;
 }
 
 ::-webkit-scrollbar-thumb {
-    background: #4a5568;
+    background: #374151;
     border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: #6b7280;
+    background: #4b5563;
 }

@@ -1,0 +1,43 @@
+.badge {
+
+    display: inline-flex;
+
+    align-items: center;
+
+    gap: 8px;
+
+    width: fit-content;
+
+    padding: 8px 14px;
+
+    border-radius: 999px;
+
+    font-size: 14px;
+
+    font-weight: 600;
+}
+
+.safe {
+
+    background: #dcfce7;
+
+    color: #15803d;
+}
+
+.danger {
+
+    background: #fee2e2;
+
+    color: #b91c1c;
+}
+
+.dot {
+
+    width: 10px;
+
+    height: 10px;
+
+    border-radius: 50%;
+
+    background: currentColor;
+}
