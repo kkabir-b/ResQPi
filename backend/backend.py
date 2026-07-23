@@ -1,7 +1,14 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
+import clickhouse_connect
 from fastapi.middleware.cors import CORSMiddleware
 
+clickhouse_client = clickhouse_connect.get_client(
+    host = 'localhost',
+    port = 8123,
+    username = 'default',
+    password ='resqpi123'
+)
 
 
 class ResetRequest(BaseModel):
@@ -21,8 +28,15 @@ app.add_middleware(
 )
 
 
-def get_locations(): #update to use db lol
-    return [{'name':'Location A', 'emergency': False},{'name':'Location B', 'emergency':True},{'name':'Location C', 'emergency':True},{'name':'Location D', 'emergency':True},{'name':'Location E', 'emergency':True}]
+def get_locations():
+    # Fetch rows and alias 'location' to 'name'
+    query = "SELECT location AS name, emergency FROM resqpi_db.locations ORDER BY location"
+    result = clickhouse_client.query(query)
+    
+    return [
+        dict(zip(result.column_names, row)) 
+        for row in result.result_rows
+    ]
 
 
 
@@ -37,4 +51,17 @@ async def locations():
 
 @app.post('/reset')
 async def reset_location(request: ResetRequest):
-    print(request.location)
+    query = """
+        ALTER TABLE resqpi_db.locations 
+        UPDATE emergency = false 
+        WHERE location = {loc:String}
+    """
+    
+    # Execute the mutation using parameterized inputs to prevent SQL injection
+    clickhouse_client.command(query, parameters={'loc': request.location})
+    
+    return {
+        "status": "success", 
+        "location": request.location, 
+        "emergency": False
+    }

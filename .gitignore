@@ -273,3 +273,10 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+# ClickHouse binary and data
+clickhouse
+clickhouse.log
+clickhouse-server.err.log
+clickhouse-server.log
+clickhouse_data/
+resqpi_data/
