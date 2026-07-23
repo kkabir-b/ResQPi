@@ -1,0 +1,117 @@
+.card {
+
+    background: white;
+
+    border-radius: 18px;
+
+    padding: 22px;
+
+    min-height: 190px;
+
+    display: flex;
+
+    flex-direction: column;
+
+    box-shadow:
+        0 12px 30px rgba(0,0,0,.18);
+
+    transition:
+        transform .2s,
+        box-shadow .2s;
+}
+
+.card:hover {
+
+    transform: translateY(-6px);
+
+    box-shadow:
+        0 18px 40px rgba(0,0,0,.25);
+}
+
+.safe {
+
+    border-top: 6px solid #22c55e;
+}
+
+.danger {
+
+    border-top: 6px solid #ef4444;
+}
+
+.header {
+
+    display: flex;
+
+    justify-content: space-between;
+
+    align-items: flex-start;
+}
+
+.info {
+
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 12px;
+}
+
+.title {
+
+    color: #1f2937;
+
+    font-size: 22px;
+
+    font-weight: 600;
+}
+
+.icon {
+
+    font-size: 42px;
+}
+
+.description {
+
+    margin-top: 18px;
+
+    color: #6b7280;
+
+    line-height: 1.5;
+
+    font-size: 15px;
+}
+
+.resetButton {
+
+    margin-top: auto;
+
+    width: 100%;
+
+    padding: 13px;
+
+    border: none;
+
+    border-radius: 10px;
+
+    background: #ef4444;
+
+    color: white;
+
+    font-size: 15px;
+
+    font-weight: 600;
+
+    transition:
+        background .2s,
+        transform .15s;
+}
+
+.resetButton:hover {
+
+    background: #dc2626;
+}
+
+.resetButton:active {
+
+    transform: scale(.98);
+}

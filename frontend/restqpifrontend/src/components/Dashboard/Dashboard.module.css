@@ -1,0 +1,99 @@
+.dashboard {
+    max-width: 1700px;
+    margin: 0 auto;
+    padding: 60px 70px;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+
+    margin-bottom: 70px;
+}
+
+.header h1 {
+    font-size: 52px;
+    font-weight: 700;
+    letter-spacing: -1px;
+    margin-bottom: 10px;
+}
+
+.header p {
+    font-size: 18px;
+    color: #9ca3af;
+}
+
+.counter {
+    min-width: 250px;
+
+    margin-left: 140px;
+
+
+    border-radius: 18px;
+
+    padding: 24px 40px;
+
+    text-align: center;
+
+    box-shadow: 0 12px 35px rgba(0,0,0,.3);
+}
+
+.counter span {
+    display: block;
+
+    font-size: 14px;
+
+    color: #b6bec9;
+
+    text-transform: uppercase;
+
+    letter-spacing: 1px;
+
+    margin-bottom: 12px;
+}
+
+.counter h2 {
+    font-size: 54px;
+    color: #ff4b4b;
+}
+
+.grid {
+
+    display: grid;
+
+    grid-template-columns: repeat(auto-fill, minmax(270px,1fr));
+
+    gap: 36px;
+}
+
+.loading {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    height: 300px;
+
+    font-size: 28px;
+}
+
+.empty {
+    color: #9ca3af;
+}
+
+@media (max-width: 900px) {
+
+    .header {
+
+        flex-direction: column;
+
+        gap: 30px;
+    }
+
+    .counter {
+
+        margin-left: 0;
+
+        width: 100%;
+    }
+}

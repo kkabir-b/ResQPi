@@ -6,11 +6,16 @@
 #include <utility>
 #include <vector>
 #include <onnxruntime_cxx_api.h>
+#include <librdkafka/rdkafkacpp.h>
+#include <memory>
+
 
 class Inferrer {
 private:
     Ort::Env env;
     Ort::Session session;
+    std::unique_ptr<RdKafka::Producer> kafka_producer;
+    std::string kafka_topic;
     
     std::tuple<cv::Mat, float, std::pair<float,float>> letterbox(const cv::Mat& img, int newShape = 640, const cv::Scalar& color = cv::Scalar(114, 114, 114));
     std::tuple<std::vector<float>, float, std::pair<float,float>> preProcess(const cv::Mat& imgBGR, int imgSize = 640);
