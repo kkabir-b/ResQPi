@@ -1,12 +1,5 @@
-# ResQPi
-## About
+## Sending and receiving logic
 
-This project aims to create a detection system for distress signals and send a corresponding notification to authorities/people in charge.
-
-ResQPi utilizes a quantized YOLOv10 model to detect the "call" gesture from the HaGRID dataset - interpreting it as the distress signal.
-
-This project has two executables, sender and receiver. Sender is responsible for camera management and forwarding the frames through UDP while receiver reassembles the frames at the backend and does the inference/potential authority notification.
-## Build instructions
 ### 1. System dependencies (Ubuntu/Debian)
  
 ```bash
@@ -54,14 +47,14 @@ Log out and back in.
 ### 5. Model files
  
 ```
-ResQPi/
-├── models/
-│   ├── YOLOv10n_gestures.onnx
-│   └── yolov10n_gestures_int8.onnx
-├── src/sender.cpp
-├── src/receiver.cpp
-├── CMakeLists.txt
-└── vcpkg.json
+ResQPi/cpp/
+        ├── models/
+        │   ├── YOLOv10n_gestures.onnx
+        │   └── yolov10n_gestures_int8.onnx
+        ├── src/sender.cpp
+        ├── src/receiver.cpp
+        ├── CMakeLists.txt
+        └── vcpkg.json
 ```
  
 Edit `model_path` in `receiver.cpp` to point at whichever one you want to run.
@@ -93,10 +86,22 @@ padded.convertTo(floatImg, CV_32FC3);
 ``` 
 in `src/inferrer/Inferrer.cpp`
 
-## Citations
-[HaGRID Dataset](https://github.com/hukenovs/hagrid)
 
-## TODO
- - Add the notification system to notify clients 
-   - Current considering email notification 
-   - Have a dashboard of multiple rooms and ping if distress signal detect, used for example in an old age home
+
+# Redpanda 
+
+## Run Instructions
+
+```bash
+docker run -d --name redpanda \
+  -p 9092:9092 \
+  -p 9644:9644 \
+  docker.redpanda.com/redpandadata/redpanda:latest \
+  redpanda start --mode dev-container
+  ```
+
+## Adding topic
+
+```bash
+docker exec -it redpanda rpk topic create detection-events
+```

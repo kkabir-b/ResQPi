@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 
 find_package(OpenCV CONFIG REQUIRED)
+find_package(RdKafka REQUIRED)
 
 # ---------------------------------------------------------------
 # ONNX Runtime (official prebuilt release, NOT via vcpkg)
@@ -56,4 +57,4 @@ target_include_directories(receiver PRIVATE ${OpenCV_INCLUDE_DIRS} ${ORT_INCLUDE
 
 target_link_libraries(sender PRIVATE ${OpenCV_LIBS})
 
-target_link_libraries(receiver PRIVATE ${OpenCV_LIBS} ${ORT_LIBRARY})
+target_link_libraries(receiver PRIVATE ${OpenCV_LIBS} ${ORT_LIBRARY} RdKafka::rdkafka++)

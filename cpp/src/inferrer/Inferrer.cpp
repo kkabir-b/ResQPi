@@ -5,7 +5,9 @@
 #include <utility>
 #include <vector>
 #include <onnxruntime_cxx_api.h>
-
+#include <librdkafka/rdkafkacpp.h>
+#include <memory>
+#include <string>
 
 
 
@@ -18,6 +20,21 @@ Inferrer::Inferrer(const char* path):env(ORT_LOGGING_LEVEL_WARNING,"InferrerInst
     session_options.SetExecutionMode(ExecutionMode::ORT_SEQUENTIAL);
 
     session = Ort::Session(env,path,session_options);
+
+    std::string errstr;
+    std::unique_ptr<RdKafka::Conf> conf(RdKafka::Conf::create(RdKafka::Conf::CONF_GLOBAL));
+    
+    
+    if (conf->set("bootstrap.servers", "localhost:9092", errstr) != RdKafka::Conf::CONF_OK) {
+        std::cerr << "[Kafka Config Error] " << errstr << std::endl;
+    } else {
+        kafka_producer.reset(RdKafka::Producer::create(conf.get(), errstr));
+        if (!kafka_producer) {
+            std::cerr << "[Kafka Create Error] " << errstr << std::endl;
+        }
+    }
+    
+    kafka_topic = "detection-events"; 
 }
 
 std::tuple<cv::Mat, float, std::pair<float, float>>
@@ -153,8 +170,33 @@ void Inferrer::runInfer(const cv::Mat& inputImg)
     bool targetDetected = postProcess(outputData, num_detections, 0.75f);
 
     if (targetDetected) {
-        std::cout << "Call gesture successfully detected." << std::endl;
-    } else {
+        std::cout << "[Inferrer] Target gesture detected!" << std::endl;
+
+        if (kafka_producer) {
+            std::string payload = "\"Location A\"";
+
+            RdKafka::ErrorCode resp = kafka_producer->produce(
+                kafka_topic,
+                RdKafka::Topic::PARTITION_UA,
+                RdKafka::Producer::RK_MSG_COPY,
+                const_cast<char*>(payload.c_str()), 
+                payload.size(),
+                nullptr, // key
+                0,       // key length
+                0,       // timestamp
+                nullptr  // msg_opaque
+            );
+
+            if (resp == RdKafka::ERR_NO_ERROR) {
+                std::cout << "[Kafka] Successfully published: " << payload << std::endl;
+            } else {
+                std::cerr << "[Kafka Error] Failed to send message: " << RdKafka::err2str(resp) << std::endl;
+            }
+            
+            
+            kafka_producer->poll(0);}
+    } 
+    else {
         std::cout << "Call gesture not found." << std::endl;
     }
 }
